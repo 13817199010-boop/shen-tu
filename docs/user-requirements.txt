@@ -1,0 +1,379 @@
+使用模型：GPT-6.1 Sol（高思考 / High）
+你是一名资深 Android、C++、AI 推理引擎和移动端性能优化工程师，熟悉：
+- Android SDK、NDK、JNI、Kotlin、Jetpack Compose
+- CMake、ARM64、GGML、GGUF
+- Stable Diffusion、Diffusion Transformer（DiT）
+- Vulkan、Mali / Immortalis GPU、CPU 多线程
+- 模型量化、内存管理、移动端散热优化
+- GitHub Actions 自动化构建 APK
+最终目标：开发一款名为 MOSS Image Mobile 的安卓原生 APK，使 MOSS-Image 模型能够完全在安卓移动设备内部离线运行。
+
+要求最终交付真实、可安装、可运行的 Android APK，而不是网页、远程控制客户端或空壳演示软件。
+
+整个项目优先保证模型真正运行，再优化速度和用户体验。
+1. 完全不依赖电脑。 用户不需要 Windows、Mac、Linux PC，也不需要 USB 连接电脑。
+2. 完全本地推理。 所有模型计算必须发生在安卓设备上，不能调用在线 AI 生图 API。
+3. 不依赖 Termux。 可以参考 Termux 项目的编译与适配经验，但最终用户不需要安装 Termux、proot、Python 环境或其他辅助软件。
+4. 独立 APK。 安装 App 后即可从界面下载或导入模型，并在 App 内完成生成。
+5. 无需 Root。 使用正常安卓权限和存储接口。
+6. 允许 GitHub Actions 构建。 GitHub 云端仅用于代码编译、测试和提供 APK，不参与图片生成。
+7. 不允许虚假实现。 不能使用预先准备的图片冒充模型输出，也不能用模拟进度伪装真实推理。
+8. 遇到技术难题必须寻找合理的开源实现，或者明确报告障碍，不得直接跳过核心功能。
+主要测试设备：OPPO Pad 5。
+
+硬件信息：
+- SoC：联发科天玑 9400+
+- CPU：ARM64 八核
+- GPU：Arm Immortalis-G925 MC12
+- 运行内存：16GB 物理 RAM
+- 扩展内存：额外 12GB，不能视为真实 RAM
+- 系统：Android 16 / ColorOS
+- 目标 ABI：arm64-v8a
+请在开发时验证真实设备信息及 Android 运行限制。
+
+由于设备只有 16GB 物理内存，必须将内存优化列为最高优先级之一。
+
+不得假设 16GB RAM 全部可供 App 使用，也不得假设模型文件的磁盘大小等于实际运行内存。
+以下 GitHub 项目是主要技术参考，需要阅读它们的最新 README、源码、构建文档和许可证。
+https://github.com/OpenMOSS/MOSS-Image
+
+用途：
+- 确认 MOSS-Image 模型结构
+- 研究 Base 与 SFT 版本的差别
+- 分析推理参数、时间调度、文本编码器与 VAE
+- 保持最终生成结果尽量接近官方模型质量
+优先使用 MOSS-Image-SFT。
+https://github.com/leejet/stable-diffusion.cpp
+
+专门文档：
+
+https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/moss_image.md
+
+这是整个项目最重要的开源代码。
+
+要求：
+- 复用已有的 MOSS-Image 支持
+- 使用 C++ 原生推理
+- 编译为 Android arm64-v8a 原生库
+- 通过 JNI 与 Kotlin 界面通信
+- 支持 GGUF 量化模型
+- 支持 CPU 推理
+- 研究 Vulkan GPU 加速
+- 接入原生进度、日志、错误处理及取消机制
+- 检查是否支持 VAE tiling、Flash Attention 和按组件释放内存
+必须根据仓库当前真实的 C/C++ API 编写 JNI 接口，不能凭空编造函数名称。
+https://github.com/rmatif/Local-Diffusion
+
+这是基于 stable-diffusion.cpp 的安卓本地生图项目。
+
+重点参考：
+- Android 工程结构
+- 原生推理引擎集成
+- 模型导入和文件管理
+- 图片生成任务管理
+- 进度显示与错误处理
+- 内存优化思路
+- Vulkan 和 CPU 后端切换
+它的现有模型支持范围不等于 MOSS-Image 支持范围。
+
+可以复用已经验证的代码，但必须补全 MOSS-Image 的模型加载和推理能力。
+https://github.com/ggml-org/ggml
+
+用途：
+- ARM64 CPU 性能优化
+- 张量计算
+- GGUF 模型处理
+- Vulkan 后端研究
+- 内存管理
+- 多线程优化
+优先沿用 stable-diffusion.cpp 已锁定的 GGML 依赖版本，避免自行升级造成不兼容。
+https://github.com/Witnessweave/phone-gpu-diffusion
+
+该项目研究 Mali / Immortalis GPU 运行扩散模型。
+
+可用于参考：
+- 安卓 Vulkan 驱动检测
+- Mali GPU 后端初始化
+- GGML Vulkan 计算
+- GPU 与 CPU 性能测试
+- 数值错误和黑图问题的诊断
+注意：这是实验性项目，不能假设其方案能直接在 OPPO Pad 5 上运行。
+
+不能把 Termux 或 proot 引入最终 APK。
+https://github.com/xinntao/Real-ESRGAN
+
+作为后期图片放大功能参考。
+
+必须先验证 ARM64 推理适配、模型体积和内存成本。
+https://github.com/danielgatis/rembg
+
+用于研究背景去除和透明 PNG 输出。
+
+不要求在 APK 中安装 Python。需要寻找可在安卓原生环境运行的兼容实现。
+
+主要面向 Q 版人物表情包制作。
+https://github.com/KohakuBlueleaf/KohakuMossTrainer
+
+用于了解 MOSS-Image 的 LoRA 训练和加载方式。
+
+本阶段不要求在安卓上训练 LoRA，但应为未来兼容角色 LoRA 保留扩展空间。
+
+开发原则：核心阶段只使用必要依赖。非核心项目不得影响基础生图稳定性。
+模型主要由四个组件组成：
+1. MOSS-Image-SFT 主扩散模型
+2. Qwen3.5-9B 文本编码器
+3. FLUX.2 VAE 解码器
+4. MOSS 专用 tokenizer.json
+MOSS 主模型：
+
+https://huggingface.co/leejet/MOSS-Image-SFT-GGUF/tree/main
+
+优先测试：
+
+MOSS-Image-SFT-Q3_K.gguf
+
+约 2.7GB。
+
+如果内存不足，可以尝试 Q2_K；如果运行稳定，可以比较 Q4_K 画质。
+
+文本编码器：
+
+https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/tree/main
+
+优先测试：
+
+Qwen3.5-9B-Q3_K_S.gguf
+
+约 4.32GB。
+
+VAE：
+
+https://huggingface.co/Comfy-Org/MOSS-Image/tree/main/vae
+
+Tokenizer：
+
+https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base/tree/main/tokenizer
+
+下载文件总大小初步预计约 7.4GB，实际取决于 VAE 和 tokenizer 文件。
+
+必须验证：
+- 模型文件是否完整
+- GGUF 量化格式是否受到当前引擎支持
+- Qwen3.5 编码器与 MOSS tokenizer 是否正确匹配
+- VAE 是否与主模型兼容
+- 全部组件加载时的真实内存峰值
+- 图片生成后是否能主动释放模型和中间张量
+不能将 7.4GB 下载量理解为 7.4GB 内存占用。
+
+如 Q3 仍无法运行，应分析更低量化、组件分阶段加载、内存映射及释放中间缓存的可行性，不得通过隐瞒内存溢出来宣称成功。
+应用名称：MOSS Image Mobile
+
+界面风格：
+- 简洁现代
+- 适配安卓平板和手机
+- 深色与浅色模式
+- 优先采用 Kotlin + Jetpack Compose
+- 中文界面优先
+包含：
+- 提示词输入
+- 生成按钮
+- 图片预览
+- 推理进度
+- 取消生成
+- 保存 PNG
+- 历史图片记录
+提供：
+- 256×256 初始兼容测试
+- 512×512 标准低内存测试
+- 768×768 提升画质
+- 1024×1024 高质量实验模式
+- 推理步数调整
+- Seed 种子值
+- CFG 等官方支持的参数
+- CPU 线程数
+- CPU / Vulkan 后端选择
+- 模型量化版本切换
+分辨率必须符合 MOSS-Image 的尺寸约束。
+
+默认设置以稳定性为先，实际参数依据官方模型文档配置。
+App 内提供：
+- 从设备存储导入模型
+- 从 Hugging Face 下载模型
+- 断点续传
+- 下载进度
+- 文件完整性校验
+- 自定义模型目录
+- 删除不再使用的模型
+- 查看模型所需存储空间
+使用 Android Storage Access Framework 或其他符合当前系统权限要求的方式管理文件。
+
+下载后可以完全断网使用。
+显示：
+- 生成耗时
+- 内存占用
+- CPU 线程数
+- 推理后端
+- 实际执行步数
+- 运行错误日志
+在系统权限允许的情况下获取温度与性能指标，不得伪造 GPU 使用率或温度数据。
+优先确保 MOSS-Image-SFT 能在安卓设备上真实生成图片。
+
+测试：
+- 4 线程
+- 6 线程
+- 8 线程
+对比耗时、内存、设备发热和稳定性。
+
+线程越多不一定越快，应使用实际测试选择默认值。
+研究并实现可兼容的优化：
+- GGUF 低比特量化
+- mmap 模型文件加载
+- 减少模型重复加载
+- 编码器和扩散模型分阶段运行
+- 不再使用的组件及时释放
+- VAE 分块解码
+- Flash Attention
+- 限制并发生成
+- 降低中间激活内存
+- 生成完成后回收内存
+内存优化不能以严重破坏图片质量为代价。
+针对 Immortalis-G925 研究 Vulkan 加速。
+
+必须验证：
+1. GPU 能否成功初始化
+2. GGML Vulkan 是否能运行相关算子
+3. 是否出现缺失算子
+4. 是否出现 NaN、黑图或错误噪声
+5. 生成结果是否正常
+6. 是否真正快于 CPU
+7. 内存和温度是否可接受
+如果 GPU 不兼容，应自动回退 CPU。
+
+禁止使用未经测试的 Vulkan 路线作为默认模式。
+如果技术上可行，探索：
+- CPU 负责文本编码
+- GPU 负责部分扩散计算
+- CPU 或 GPU 负责 VAE 解码
+- 尽量减少重复的数据传输
+是否采用混合模式必须依据性能测量，而不是理论推测。
+最终目标不只是能生成一张图片，还需要尽量保持 MOSS-Image 的原始质量。
+
+重点测试：
+- 二次元人物
+- Q 版角色
+- 复杂服装和发饰
+- 中文文字
+- 多人物场景
+- 写实人物
+- 海报和布局控制
+- 高分辨率图片
+Q3 等低精度模型可能影响质量，应与较高精度版本进行固定提示词和 Seed 的对比。
+
+针对 Q 版表情包，应预留透明背景、批量生成、角色 LoRA 加载等扩展能力，但这些不能阻碍第一阶段交付。
+代码托管到 GitHub。
+
+使用 GitHub Actions 自动化构建安卓 APK，满足用户没有电脑的情况。
+
+要求：
+- Android SDK
+- Android NDK
+- CMake
+- Gradle
+- arm64-v8a
+- 原生 C++ 推理库
+- APK 输出
+- 自动上传构建产物
+- 完整构建日志
+提供 Debug APK 和后续正式签名 Release APK 的构建方式。
+
+模型权重不必内置在 APK 内，避免安装包过大。
+
+首次安装后由 App 下载或导入模型。
+
+不得要求用户通过电脑执行 adb、手工编译或者 USB 调试。
+阶段 A：技术审计
+
+先检查以上 GitHub 项目的真实代码，确认：
+- MOSS 的 C++ 推理接口
+- Android NDK 编译可行性
+- 模型加载参数
+- tokenizer 和 VAE 兼容性
+- JNI 桥接方式
+- 当前最容易出现的问题
+列出风险和可执行的解决办法。
+
+阶段 B：最小可用 APK
+
+只实现：
+- 启动 App
+- 导入四个模型
+- 加载模型
+- 输入提示词
+- 使用 CPU 生图
+- 输出真实 PNG
+- 查看日志
+确保没有云端推理调用。
+
+阶段 C：内存与稳定性
+
+解决：
+- 内存不足
+- 模型加载崩溃
+- 图片黑屏
+- 无法取消推理
+- 关闭页面资源未释放
+- 安卓后台杀进程
+- 反复生成导致内存增长
+阶段 D：速度优化
+
+逐项测试 CPU 多线程、量化策略、Vulkan 和混合推理。
+
+记录修改前后的真实性能数据。
+
+阶段 E：完整图形界面
+
+加入模型管理、历史记录、相册保存、高级设置、错误提示与下载管理。
+
+阶段 F：APK 发布
+
+通过 GitHub Actions 构建和测试，输出可下载的 APK。
+
+如果当前阶段无法验证真实设备的推理结果，必须明确标记为“构建通过、实机推理未验证”，不能宣称全部完成。
+必须满足：
+1. OPPO Pad 5 可以直接安装 APK。
+2. 无需 Root、电脑、Termux 或其他辅助 App。
+3. 能从安卓界面导入完整 MOSS 模型。
+4. 能输入中文和英文提示词。
+5. 断网后仍可以使用已经下载的模型。
+6. 确实调用 MOSS-Image 进行推理。
+7. 能生成并保存有效 PNG。
+8. 连续生成不会持续增加无法释放的内存。
+9. CPU 模式可用。
+10. Vulkan 模式若不可用，明确标记实验性并允许回退。
+11. 有真实生成日志、耗时和错误信息。
+12. APK 可通过 GitHub Actions 下载。
+优先级顺序：真实生图 > 稳定运行 > 内存优化 > 速度优化 > GPU 加速 > 界面美观 > 附加功能。
+现在请开始开发，而不是只给我概念性建议。
+
+请首先：
+1. 审查所有关键 GitHub 项目，确定技术路线。
+2. 选择最合适的 Android + C++ 集成方式。
+3. 设计真实可行的工程目录。
+4. 配置 Android NDK、JNI、CMake 和 Gradle。
+5. 编写最小可用 APK 的真实推理代码。
+6. 配置 GitHub Actions 构建流程。
+7. 运行能够执行的编译与自动化测试。
+8. 报告真实构建结果和尚需实机测试的功能。
+如果仓库环境支持，请直接修改代码并提交，不要停留在计划阶段。
+
+不要重复询问已经明确的需求，也不要默认使用电脑或云端生图。
+
+遇到困难时，先分析日志、定位问题、寻找合适的开源实现并修复。
+
+完成每个阶段后，给出：
+- 已实现功能
+- 修改的关键文件
+- 编译或测试结果
+- 未解决问题
+- 下一阶段任务
+最终交付目标：一款可以直接安装在 OPPO Pad 5 上，完全依靠安卓设备 CPU 或 GPU 离线生成 MOSS-Image 图片的真实 APK。

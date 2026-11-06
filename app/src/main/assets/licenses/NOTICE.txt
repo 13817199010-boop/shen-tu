@@ -1,0 +1,1 @@
+MOSS Image Mobile integrates stable-diffusion.cpp and its pinned GGML. See the included license files and docs/audit/upstream.md for exact source revisions. AndroidX and Kotlin components are provided under their respective Apache-2.0 licenses. No model weights are distributed. No training or phone-gpu-diffusion code is included.

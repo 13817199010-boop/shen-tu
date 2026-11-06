@@ -1,0 +1,41 @@
+name: Android CPU APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, work]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Initialize exact inference dependencies only
+        run: |
+          git submodule update --init --depth 1 vendor/stable-diffusion.cpp
+          git -C vendor/stable-diffusion.cpp submodule update --init --depth 1 ggml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Install pinned Android tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
+      - name: Unit tests, lint and real JNI APK build
+        run: gradle testDebugUnitTest lintDebug assembleDebug assembleRelease --console=plain
+      - name: Upload APKs and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MOSS-Image-Mobile-CPU
+          path: |
+            app/build/outputs/apk/**/*.apk
+            app/build/reports/
+          if-no-files-found: warn

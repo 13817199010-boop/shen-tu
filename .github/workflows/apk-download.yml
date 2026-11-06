@@ -1,0 +1,50 @@
+name: Publish existing APK download
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/apk-download.yml']
+permissions:
+  actions: read
+  contents: write
+jobs:
+  upload:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download the verified CPU build
+        run: gh run download 42183862592 --name MOSS-Image-Mobile-CPU --dir "$RUNNER_TEMP/moss-apk"
+      - name: Check and prepare the installable Debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_path=$(find "$RUNNER_TEMP/moss-apk" -type f -name app-debug.apk -print -quit)
+          test -s "$apk_path"
+          cp "$apk_path" MOSS-Image-Mobile.apk
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('MOSS-Image-Mobile.apk') as archive:
+              assert archive.testzip() is None
+              assert 'lib/arm64-v8a/libmoss_jni.so' in archive.namelist()
+              assert 'AndroidManifest.xml' in archive.namelist()
+          PY
+          sha256sum MOSS-Image-Mobile.apk > MOSS-Image-Mobile.apk.sha256
+      - name: Upload a direct APK download
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'NOTES'
+          MOSS Image Mobile CPU 测试版。
+
+          下载 MOSS-Image-Mobile.apk 后直接安装，无需解压、电脑、Root 或 Termux。APK 已有开发签名，未内置模型权重；首次使用需导入四个模型组件。
+
+          来自已成功构建的 GitHub Actions run 42183862592。构建及自动化测试通过；OPPO Pad 5 实机推理、图片质量和 16GB 内存适配尚未验证。Vulkan 尚未启用，此版本不是稳定版。
+          NOTES
+          if gh release view v0.1.0-cpu-preview >/dev/null 2>&1; then
+            gh release upload v0.1.0-cpu-preview MOSS-Image-Mobile.apk MOSS-Image-Mobile.apk.sha256 --clobber
+          else
+            gh release create v0.1.0-cpu-preview MOSS-Image-Mobile.apk MOSS-Image-Mobile.apk.sha256 --target 590c7db3acd722d4ec305469fe151bbab70cc6a4 --prerelease --title 'MOSS Image Mobile 0.1.0 CPU 测试版' --notes-file release-notes.md
+          fi

@@ -19,3 +19,7 @@
 具体设备测试步骤见 [device-test.md](device-test.md)。下一步必须用 Debug APK 和完整四组件在真实平板上完成 256 CPU 生成，再推进内存、速度与 GPU 阶段。下载管理/外部模型目录/放大/抠图/LoRA 等后续需求未实现，详见 README。
 
 本地 APK、校验和、构建日志和报告保存在 `/workspace/artifacts`。GitHub Actions 工作流已配置；仅远端实际运行成功才会生成 GitHub artifact，不把本机日志写成 Actions 已执行。
+
+## GitHub Actions 首次运行
+
+推送触发 run 42183395733；checkout、固定子模块、Java 成功，第三方 `android-actions/setup-android@v3` 初始化步骤失败（19s，未进入编译）。未登录页面不提供具体日志，未推断为源码问题。工作流已改用 Ubuntu runner 预装 Android SDK 的 sdkmanager，并直接使用仓库已校验的 Gradle Wrapper，移除这两个冗余 bootstrap action；Java/checkout 更新为 Node24 版本。云端重跑结果以 Actions 页面为准。
